@@ -9,6 +9,7 @@ using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio.Shell;
 using System.ComponentModel;
+using System.Linq;
 using EnvDTE;
 
 namespace Predelnik.RemoveTrailingWhitespaces
@@ -25,6 +26,51 @@ namespace Predelnik.RemoveTrailingWhitespaces
             set { removeTrailingWhitespacesOnSave = value; }
         }
     };
+
+    internal class RunningDocTableEvents : IVsRunningDocTableEvents3
+    {
+        RemoveTrailingWhitespacesPackage _pkg;
+
+        public RunningDocTableEvents(RemoveTrailingWhitespacesPackage pkg)
+        {
+            _pkg = pkg;
+        }
+
+        public int OnBeforeSave(uint docCookie)
+        {
+            if (_pkg.removeOnSave())
+            {
+                RunningDocumentInfo runningDocumentInfo = _pkg.rdt.GetDocumentInfo(docCookie);
+                EnvDTE.Document document = _pkg.dte.Documents.OfType<EnvDTE.Document>().SingleOrDefault(x => x.FullName == runningDocumentInfo.Moniker);
+                var textDoc = document.Object("TextDocument") as TextDocument;
+                if (textDoc != null)
+                    RemoveTrailingWhitespacesPackage.removeTrailingWhiteSpaces(textDoc);
+            }
+            return VSConstants.S_OK;
+        }
+
+        public int OnAfterAttributeChange(uint docCookie, uint grfAttribs) { return VSConstants.S_OK; }
+        public int OnAfterAttributeChangeEx(uint docCookie, uint grfAttribs, IVsHierarchy pHierOld,
+                                            uint itemidOld, string pszMkDocumentOld, IVsHierarchy pHierNew,
+                                            uint itemidNew, string pszMkDocumentNew)
+        {
+            return VSConstants.S_OK;
+        }
+
+        public int OnAfterDocumentWindowHide(uint docCookie, IVsWindowFrame pFrame) { return VSConstants.S_OK; }
+        public int OnAfterFirstDocumentLock(uint docCookie, uint dwRDTLockType, uint dwReadLocksRemaining, uint dwEditLocksRemaining)
+        {
+            return VSConstants.S_OK;
+        }
+
+        public int OnAfterSave(uint docCookie) { return VSConstants.S_OK; }
+        public int OnBeforeDocumentWindowShow(uint docCookie, int fFirstShow, IVsWindowFrame pFrame) { return VSConstants.S_OK; }
+
+        public int OnBeforeLastDocumentUnlock(uint docCookie, uint dwRDTLockType, uint dwReadLocksRemaining, uint dwEditLocksRemaining)
+        {
+            return VSConstants.S_OK;
+        }
+    }
 
     /// <summary>
     /// This is the class that implements the package exposed by this assembly.
@@ -64,11 +110,10 @@ namespace Predelnik.RemoveTrailingWhitespaces
         /////////////////////////////////////////////////////////////////////////////
         // Overridden Package Implementation
         #region Package Members
-        private DTE _dte;
+        public DTE dte;
         private Properties _props;
-        DocumentEvents _docEvents;
-        Events _events;
         bool _actionAppliedFlag = false;
+        public RunningDocumentTable rdt;
 
         /// <summary>
         /// Initialization of the package; this method is called right after the package is sited, so this is the place
@@ -78,11 +123,10 @@ namespace Predelnik.RemoveTrailingWhitespaces
         {
             Debug.WriteLine(string.Format(CultureInfo.CurrentCulture, "Entering Initialize() of: {0}", this.ToString()));
             base.Initialize();
-            _dte = GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
-            _props = _dte.get_Properties("Remove Trailing Whitespaces", "Options");
-            _events = _dte.Events;
-            _docEvents = _events.DocumentEvents;
-            _docEvents.DocumentSaved += onDocumentSaved;
+            dte = GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+            _props = dte.get_Properties("Remove Trailing Whitespaces", "Options");
+            rdt = new RunningDocumentTable(this);
+            rdt.Advise(new RunningDocTableEvents(this));
             var mcs = GetService(typeof(IMenuCommandService)) as OleMenuCommandService;
             if (mcs != null)
             {
@@ -105,7 +149,7 @@ namespace Predelnik.RemoveTrailingWhitespaces
 
         private bool isNeededForActiveDocument()
         {
-            var doc = _dte.ActiveDocument;
+            var doc = dte.ActiveDocument;
             if (doc == null)
             {
                 return false;
@@ -127,43 +171,18 @@ namespace Predelnik.RemoveTrailingWhitespaces
 
         private void onRemoveTrailingWhitespacesPressed(object sender, EventArgs e)
         {
-            if (_dte.ActiveDocument == null) return;
-            var textDocument = _dte.ActiveDocument.Object() as TextDocument;
+            if (dte.ActiveDocument == null) return;
+            var textDocument = dte.ActiveDocument.Object() as TextDocument;
             if (textDocument == null) return;
             removeTrailingWhiteSpaces(textDocument);
         }
 
-        private void onDocumentSaved(Document Document)
-        {
-            if (Document == null || !removeOnSave())
-                return;
-            var textDocument = Document.Object() as TextDocument;
-            if (textDocument == null) return;
-
-            if (!_actionAppliedFlag)
-            {
-                try
-                {
-                    removeTrailingWhiteSpaces(textDocument);
-                    _actionAppliedFlag = true;
-                    Document.Save();
-                }
-                catch (Exception ex)
-                {
-                    Debug.Print("Trailing Whitespace Removal Exception: " + ex.Message);
-                }
-            }
-            else
-                _actionAppliedFlag = false;
-
-        }
-
-        private static void removeTrailingWhiteSpaces(TextDocument textDocument)
+        public static void removeTrailingWhiteSpaces(TextDocument textDocument)
         {
             textDocument.ReplacePattern("[^\\S\\r\\n]+(?=\\r?$)", "", (int)vsFindOptions.vsFindOptionsRegularExpression);
         }
 
-        private bool removeOnSave()
+        public bool removeOnSave()
         {
             return (bool)_props.Item("RemoveTrailingWhitespacesOnSave").Value;
         }
