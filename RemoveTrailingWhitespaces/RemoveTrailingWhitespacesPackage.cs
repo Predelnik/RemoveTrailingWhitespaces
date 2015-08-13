@@ -42,6 +42,8 @@ namespace Predelnik.RemoveTrailingWhitespaces
             {
                 RunningDocumentInfo runningDocumentInfo = _pkg.rdt.GetDocumentInfo(docCookie);
                 EnvDTE.Document document = _pkg.dte.Documents.OfType<EnvDTE.Document>().SingleOrDefault(x => x.FullName == runningDocumentInfo.Moniker);
+                if (document == null)
+                    return VSConstants.S_OK;
                 var textDoc = document.Object("TextDocument") as TextDocument;
                 if (textDoc != null)
                     RemoveTrailingWhitespacesPackage.removeTrailingWhiteSpaces(textDoc);
