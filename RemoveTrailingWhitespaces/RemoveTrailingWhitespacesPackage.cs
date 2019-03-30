@@ -114,7 +114,6 @@ namespace Predelnik.RemoveTrailingWhitespaces
         #region Package Members
         public DTE dte;
         private Properties _props;
-        bool _actionAppliedFlag = false;
         public RunningDocumentTable rdt;
 
         /// <summary>

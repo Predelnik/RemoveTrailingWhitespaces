@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.539
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{A688CC3C-273D-4418-ABD7-5047BF9B32C2}"
 	ProjectSection(SolutionItems) = preProject
@@ -10,10 +10,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RemoveTrailingWhitespaces", "RemoveTrailingWhitespaces\RemoveTrailingWhitespaces.csproj", "{33B06D46-74C6-4F60-BB43-B3FDB8BDCEB0}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RemoveTrailingWhitespaces_IntegrationTests", "RemoveTrailingWhitespaces\RemoveTrailingWhitespaces_IntegrationTests\RemoveTrailingWhitespaces_IntegrationTests.csproj", "{C96EE774-20BF-48A2-AE59-09A0F2709808}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RemoveTrailingWhitespaces_UnitTests", "RemoveTrailingWhitespaces\RemoveTrailingWhitespaces_UnitTests\RemoveTrailingWhitespaces_UnitTests.csproj", "{81EA4FD4-B565-4F47-A7CF-7D4580B0186A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -25,16 +21,11 @@ Global
 		{33B06D46-74C6-4F60-BB43-B3FDB8BDCEB0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{33B06D46-74C6-4F60-BB43-B3FDB8BDCEB0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{33B06D46-74C6-4F60-BB43-B3FDB8BDCEB0}.Release|Any CPU.Build.0 = Release|Any CPU
-		{C96EE774-20BF-48A2-AE59-09A0F2709808}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C96EE774-20BF-48A2-AE59-09A0F2709808}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{C96EE774-20BF-48A2-AE59-09A0F2709808}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{C96EE774-20BF-48A2-AE59-09A0F2709808}.Release|Any CPU.Build.0 = Release|Any CPU
-		{81EA4FD4-B565-4F47-A7CF-7D4580B0186A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{81EA4FD4-B565-4F47-A7CF-7D4580B0186A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{81EA4FD4-B565-4F47-A7CF-7D4580B0186A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{81EA4FD4-B565-4F47-A7CF-7D4580B0186A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2596E577-D090-421F-B128-6D2DB3A369B2}
 	EndGlobalSection
 EndGlobal
