@@ -11,6 +11,7 @@ using Microsoft.VisualStudio.Shell;
 using System.ComponentModel;
 using System.Linq;
 using EnvDTE;
+using Task = System.Threading.Tasks.Task;
 
 namespace Predelnik.RemoveTrailingWhitespaces
 {
@@ -86,15 +87,15 @@ namespace Predelnik.RemoveTrailingWhitespaces
     /// </summary>
     // This attribute tells the PkgDef creation utility (CreatePkgDef.exe) that this class is
     // a package.
-    [PackageRegistration(UseManagedResourcesOnly = true)]
+    [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     // This attribute is used to register the information needed to show this package
     // in the Help/About dialog of Visual Studio.
     [InstalledProductRegistration("#110", "#112", "1.0", IconResourceID = 400)]
     [Guid(GuidList.guidRemoveTrailingWhitespacesPkgString)]
     [ProvideOptionPage(typeof(OptionsPage), "Remove Trailing Whitespaces", "Options", 1000, 1001, true)]
     [ProvideMenuResource("Menus.ctmenu", 1)]
-    [ProvideAutoLoad("{f1536ef8-92ec-443c-9ed7-fdadf150da82}")]
-    public sealed class RemoveTrailingWhitespacesPackage : Package
+    [ProvideAutoLoad("{f1536ef8-92ec-443c-9ed7-fdadf150da82}", PackageAutoLoadFlags.BackgroundLoad)]
+    public sealed class RemoveTrailingWhitespacesPackage : AsyncPackage
     {
         /// <summary>
         /// Default constructor of the package.
@@ -120,9 +121,9 @@ namespace Predelnik.RemoveTrailingWhitespaces
         /// Initialization of the package; this method is called right after the package is sited, so this is the place
         /// where you can put all the initialization code that rely on services provided by VisualStudio.
         /// </summary>
-        protected override void Initialize()
+        protected override async Task InitializeAsync(System.Threading.CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
-            Debug.WriteLine(string.Format(CultureInfo.CurrentCulture, "Entering Initialize() of: {0}", this.ToString()));
+            await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
             base.Initialize();
             dte = GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
             _props = dte.get_Properties("Remove Trailing Whitespaces", "Options");
