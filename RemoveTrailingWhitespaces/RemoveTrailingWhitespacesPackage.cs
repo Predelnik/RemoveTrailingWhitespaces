@@ -30,7 +30,7 @@ namespace Predelnik.RemoveTrailingWhitespaces
 
     internal class RunningDocTableEvents : IVsRunningDocTableEvents3
     {
-        RemoveTrailingWhitespacesPackage _pkg;
+        readonly RemoveTrailingWhitespacesPackage _pkg;
 
         public RunningDocTableEvents(RemoveTrailingWhitespacesPackage pkg)
         {
@@ -39,15 +39,14 @@ namespace Predelnik.RemoveTrailingWhitespaces
 
         public int OnBeforeSave(uint docCookie)
         {
-            if (_pkg.removeOnSave())
+            if (_pkg.RemoveOnSave())
             {
                 RunningDocumentInfo runningDocumentInfo = _pkg.rdt.GetDocumentInfo(docCookie);
                 EnvDTE.Document document = _pkg.dte.Documents.OfType<EnvDTE.Document>().SingleOrDefault(x => x.FullName == runningDocumentInfo.Moniker);
                 if (document == null)
                     return VSConstants.S_OK;
-                var textDoc = document.Object("TextDocument") as TextDocument;
-                if (textDoc != null)
-                    RemoveTrailingWhitespacesPackage.removeTrailingWhiteSpaces(textDoc);
+                if (document.Object("TextDocument") is TextDocument textDoc)
+                    RemoveTrailingWhitespacesPackage.RemoveTrailingWhiteSpaces(textDoc);
             }
             return VSConstants.S_OK;
         }
@@ -114,7 +113,6 @@ namespace Predelnik.RemoveTrailingWhitespaces
         // Overridden Package Implementation
         #region Package Members
         public DTE dte;
-        private Properties _props;
         public RunningDocumentTable rdt;
 
         /// <summary>
@@ -123,33 +121,35 @@ namespace Predelnik.RemoveTrailingWhitespaces
         /// </summary>
         protected override async Task InitializeAsync(System.Threading.CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
+            dte = await GetServiceAsync(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-            base.Initialize();
-            dte = GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
-            _props = dte.get_Properties("Remove Trailing Whitespaces", "Options");
+            InitializePackage();
+        }
+
+        private void InitializePackage ()
+        {
             rdt = new RunningDocumentTable(this);
             rdt.Advise(new RunningDocTableEvents(this));
-            var mcs = GetService(typeof(IMenuCommandService)) as OleMenuCommandService;
-            if (mcs != null)
+            if (GetService(typeof(IMenuCommandService)) is OleMenuCommandService mcs)
             {
                 // Create the command for the menu item.
                 CommandID menuCommandID = new CommandID(
                     GuidList.guidRemoveTrailingWhitespacesCmdSet, (int)PkgCmdIDList.cmdIdRemoveTrailingWhitespaces);
-                OleMenuCommand menuItem = new OleMenuCommand(onRemoveTrailingWhitespacesPressed, menuCommandID);
-                menuItem.BeforeQueryStatus += onBeforeQueryStatus;
+                OleMenuCommand menuItem = new OleMenuCommand(OnRemoveTrailingWhitespacesPressed, menuCommandID);
+                menuItem.BeforeQueryStatus += OnBeforeQueryStatus;
                 mcs.AddCommand(menuItem);
             }
         }
 
-        private void onBeforeQueryStatus(object sender, EventArgs e)
+        private void OnBeforeQueryStatus(object sender, EventArgs e)
         {
             var cmd = (OleMenuCommand)sender;
 
-            cmd.Visible = isNeededForActiveDocument();
+            cmd.Visible = IsNeededForActiveDocument();
             cmd.Enabled = cmd.Visible;
         }
 
-        private bool isNeededForActiveDocument()
+        private bool IsNeededForActiveDocument()
         {
             var doc = dte.ActiveDocument;
             if (doc == null)
@@ -162,8 +162,7 @@ namespace Predelnik.RemoveTrailingWhitespaces
                 return false;
             }
 
-            var textDoc = doc.Object("TextDocument") as TextDocument;
-            if (textDoc == null)
+            if (!(doc.Object("TextDocument") is TextDocument))
             {
                 return false;
             }
@@ -171,22 +170,22 @@ namespace Predelnik.RemoveTrailingWhitespaces
             return true;
         }
 
-        private void onRemoveTrailingWhitespacesPressed(object sender, EventArgs e)
+        private void OnRemoveTrailingWhitespacesPressed(object sender, EventArgs e)
         {
             if (dte.ActiveDocument == null) return;
-            var textDocument = dte.ActiveDocument.Object() as TextDocument;
-            if (textDocument == null) return;
-            removeTrailingWhiteSpaces(textDocument);
+            if (!(dte.ActiveDocument.Object() is TextDocument textDocument)) return;
+            RemoveTrailingWhiteSpaces(textDocument);
         }
 
-        public static void removeTrailingWhiteSpaces(TextDocument textDocument)
+        public static void RemoveTrailingWhiteSpaces(TextDocument textDocument)
         {
             textDocument.ReplacePattern("[^\\S\\r\\n]+(?=\\r?$)", "", (int)vsFindOptions.vsFindOptionsRegularExpression);
         }
 
-        public bool removeOnSave()
+        public bool RemoveOnSave()
         {
-            return (bool)_props.Item("RemoveTrailingWhitespacesOnSave").Value;
+            var props = dte.get_Properties("Remove Trailing Whitespaces", "Options");
+            return (bool)props.Item("RemoveTrailingWhitespacesOnSave").Value;
         }
 
 
