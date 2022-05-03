@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <Identity Id="70f718a3-a985-44e9-9e00-4c767c708ace" Version="1.02" Language="en-US" Publisher="Predelnik" />
+        <Identity Id="22c372db-a793-4294-9fdb-83228aaf2a23" Version="1.03" Language="en-US" Publisher="Predelnik" />
         <DisplayName>RemoveTrailingWhitespaces</DisplayName>
         <Description>Trailing whitespace removal tool. Removes either manually or on file save.</Description>
         <License>LICENSE.txt</License>
@@ -10,7 +10,9 @@
         <Tags>Formatting, Trailing Whitespaces, Utility</Tags>
     </Metadata>
     <Installation InstalledByMsi="false">
-        <InstallationTarget Version="[16.0,17.0)" Id="Microsoft.VisualStudio.Community" />
+        <InstallationTarget Version="[17.1,18.0)" Id="Microsoft.VisualStudio.Community">
+            <ProductArchitecture>amd64</ProductArchitecture>
+        </InstallationTarget>
     </Installation>
     <Dependencies>
         <Dependency Id="Microsoft.Framework.NDP" DisplayName="Microsoft .NET Framework" d:Source="Manual" Version="[4.5,)" />
@@ -20,6 +22,6 @@
     </Assets>
     <Prerequisites>
         <Prerequisite Id="Microsoft.Net.Component.4.6.TargetingPack" Version="[15.0.26208.0,)" DisplayName=".NET Framework 4.6 targeting pack" />
-        <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[16.0.28315.86,17.0)" DisplayName="Visual Studio core editor" />
+        <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[16.0.28315.86,18.0)" DisplayName="Visual Studio core editor" />
     </Prerequisites>
 </PackageManifest>

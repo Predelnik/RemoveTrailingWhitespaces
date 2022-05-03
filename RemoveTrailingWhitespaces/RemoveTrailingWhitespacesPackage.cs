@@ -3,14 +3,19 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.ComponentModel.Design;
-using Microsoft.Win32;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio.Shell;
 using System.ComponentModel;
+using Microsoft.VisualStudio.Text;
+using Microsoft.VisualStudio.Text.Operations;
+using Microsoft.VisualStudio.ComponentModelHost;
+using Microsoft.VisualStudio.TextManager.Interop;
+using Microsoft.VisualStudio.Editor;
 using System.Linq;
 using EnvDTE;
+using System.Collections.Generic;
+
 using Task = System.Threading.Tasks.Task;
 
 namespace Predelnik.RemoveTrailingWhitespaces
@@ -41,12 +46,12 @@ namespace Predelnik.RemoveTrailingWhitespaces
         {
             if (_pkg.RemoveOnSave())
             {
-                RunningDocumentInfo runningDocumentInfo = _pkg.rdt.GetDocumentInfo(docCookie);
+                RunningDocumentInfo runningDocumentInfo = new RunningDocumentInfo(_pkg.rdt, docCookie);
                 EnvDTE.Document document = _pkg.dte.Documents.OfType<EnvDTE.Document>().SingleOrDefault(x => x.FullName == runningDocumentInfo.Moniker);
                 if (document == null)
                     return VSConstants.S_OK;
                 if (document.Object("TextDocument") is TextDocument textDoc)
-                    RemoveTrailingWhitespacesPackage.RemoveTrailingWhiteSpaces(textDoc);
+                    _pkg.RemoveTrailingWhiteSpaces(textDoc);
             }
             return VSConstants.S_OK;
         }
@@ -113,7 +118,10 @@ namespace Predelnik.RemoveTrailingWhitespaces
         // Overridden Package Implementation
         #region Package Members
         public DTE dte;
-        public RunningDocumentTable rdt;
+        public IVsRunningDocumentTable rdt;
+        public IFindService findService;
+        private uint rdtCookie;
+        public IComponentModel componentModel;
 
         /// <summary>
         /// Initialization of the package; this method is called right after the package is sited, so this is the place
@@ -122,14 +130,15 @@ namespace Predelnik.RemoveTrailingWhitespaces
         protected override async Task InitializeAsync(System.Threading.CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
             dte = await GetServiceAsync(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+            rdt = await GetServiceAsync(typeof(SVsRunningDocumentTable)) as IVsRunningDocumentTable;
+            componentModel = GetGlobalService(typeof(SComponentModel)) as IComponentModel;
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
             InitializePackage();
         }
 
         private void InitializePackage ()
         {
-            rdt = new RunningDocumentTable(this);
-            rdt.Advise(new RunningDocTableEvents(this));
+            rdt.AdviseRunningDocTableEvents(new RunningDocTableEvents(this), out rdtCookie);
             if (GetService(typeof(IMenuCommandService)) is OleMenuCommandService mcs)
             {
                 // Create the command for the menu item.
@@ -177,9 +186,60 @@ namespace Predelnik.RemoveTrailingWhitespaces
             RemoveTrailingWhiteSpaces(textDocument);
         }
 
-        public static void RemoveTrailingWhiteSpaces(TextDocument textDocument)
+        private IFinder GetFinder(string findWhat, string replacement, ITextBuffer textBuffer)
         {
-            textDocument.ReplacePattern("[^\\S\\r\\n]+(?=\\r?$)", "", (int)vsFindOptions.vsFindOptionsRegularExpression);
+            var findService = componentModel.GetService<IFindService> ();
+            var finderFactory = findService.CreateFinderFactory(findWhat, replacement, FindOptions.UseRegularExpressions);
+            return finderFactory.Create(textBuffer.CurrentSnapshot);
+        }
+
+        internal static ITextBuffer GettextBufferAt(TextDocument textDocument, IComponentModel componentModel, IServiceProvider serviceProvider)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            IVsWindowFrame windowFrame;
+            if (VsShellUtilities.IsDocumentOpen(
+              serviceProvider,
+              textDocument.Parent.FullName,
+              Guid.Empty,
+              out var _,
+              out var _,
+              out windowFrame))
+            {
+                IVsTextView view = VsShellUtilities.GetTextView(windowFrame);
+                IVsTextLines lines;
+                if (view.GetBuffer(out lines) == 0)
+                {
+                    var buffer = lines as IVsTextBuffer;
+                    if (buffer != null)
+                    {
+                        var editorAdapterFactoryService = componentModel.GetService<IVsEditorAdaptersFactoryService>();
+                        return editorAdapterFactoryService.GetDataBuffer(buffer);
+                    }
+                }
+            }
+
+            return null;
+        }
+        private static void ReplaceAll(ITextBuffer textBuffer, IEnumerable<FinderReplacement> replacements)
+        {
+            if (replacements.Any())
+            {
+                using (var edit = textBuffer.CreateEdit())
+                {
+                    foreach (var match in replacements)
+                    {
+                        edit.Replace(match.Match, match.Replace);
+                    }
+
+                    edit.Apply();
+                }
+            }
+        }
+
+        public void RemoveTrailingWhiteSpaces(TextDocument textDocument)
+        {
+            var textBuffer = GettextBufferAt(textDocument, componentModel, this);
+            ReplaceAll(textBuffer, GetFinder("[^\\S\\r\\n]+(?=\\r?$)", "", textBuffer).FindForReplaceAll());
         }
 
         public bool RemoveOnSave()
