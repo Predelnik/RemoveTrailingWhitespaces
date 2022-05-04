@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <Identity Id="22c372db-a793-4294-9fdb-83228aaf2a23" Version="1.04" Language="en-US" Publisher="Predelnik" />
+        <Identity Id="22c372db-a793-4294-9fdb-83228aaf2a23" Version="1.05" Language="en-US" Publisher="Predelnik" />
         <DisplayName>RemoveTrailingWhitespaces</DisplayName>
         <Description>Trailing whitespace removal tool. Removes either manually or on file save.</Description>
         <License>LICENSE.txt</License>

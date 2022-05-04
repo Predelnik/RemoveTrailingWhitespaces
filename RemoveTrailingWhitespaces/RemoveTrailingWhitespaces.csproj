@@ -180,10 +180,10 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.ComponentModelHost">
-      <Version>17.1.386</Version>
+      <Version>17.0.487</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Editor">
-      <Version>17.1.386</Version>
+      <Version>17.0.491</Version>
     </PackageReference>
   </ItemGroup>
   <PropertyGroup>

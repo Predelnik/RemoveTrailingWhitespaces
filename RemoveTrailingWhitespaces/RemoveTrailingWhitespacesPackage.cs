@@ -17,6 +17,7 @@ using EnvDTE;
 using System.Collections.Generic;
 
 using Task = System.Threading.Tasks.Task;
+using Microsoft;
 
 namespace Predelnik.RemoveTrailingWhitespaces
 {
@@ -130,7 +131,9 @@ namespace Predelnik.RemoveTrailingWhitespaces
         protected override async Task InitializeAsync(System.Threading.CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
             dte = await GetServiceAsync(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+            Assumes.Present(dte);
             rdt = await GetServiceAsync(typeof(SVsRunningDocumentTable)) as IVsRunningDocumentTable;
+            Assumes.Present(rdt);
             componentModel = GetGlobalService(typeof(SComponentModel)) as IComponentModel;
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
             InitializePackage();
