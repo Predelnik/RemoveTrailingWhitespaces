@@ -47,12 +47,7 @@ namespace Predelnik.RemoveTrailingWhitespaces
         {
             if (_pkg.RemoveOnSave())
             {
-                RunningDocumentInfo runningDocumentInfo = new RunningDocumentInfo(_pkg.rdt, docCookie);
-                EnvDTE.Document document = _pkg.dte.Documents.OfType<EnvDTE.Document>().SingleOrDefault(x => x.FullName == runningDocumentInfo.Moniker);
-                if (document == null)
-                    return VSConstants.S_OK;
-                if (document.Object("TextDocument") is TextDocument textDoc)
-                    _pkg.RemoveTrailingWhiteSpaces(textDoc);
+                _pkg.RemoveTrailingWhiteSpaces(docCookie);
             }
             return VSConstants.S_OK;
         }
@@ -100,6 +95,11 @@ namespace Predelnik.RemoveTrailingWhitespaces
     [ProvideOptionPage(typeof(OptionsPage), "Remove Trailing Whitespaces", "Options", 1000, 1001, true)]
     [ProvideMenuResource("Menus.ctmenu", 1)]
     [ProvideAutoLoad("{f1536ef8-92ec-443c-9ed7-fdadf150da82}", PackageAutoLoadFlags.BackgroundLoad)]
+    [ProvideUIContextRule("{f1536ef8-92ec-443c-9ed7-fdadf150da82}",
+        name: "Trigger for autoloading the RemoveTrailingWhitespaces extension",
+        expression: "DocOpen",
+        termNames: new[] { "DocOpen" },
+        termValues: new[] { "HierSingleSelectionName:.$" })]
     public sealed class RemoveTrailingWhitespacesPackage : AsyncPackage
     {
         /// <summary>
@@ -118,7 +118,7 @@ namespace Predelnik.RemoveTrailingWhitespaces
         /////////////////////////////////////////////////////////////////////////////
         // Overridden Package Implementation
         #region Package Members
-        public DTE dte;
+        public _DTE dte;
         public IVsRunningDocumentTable rdt;
         public IFindService findService;
         private uint rdtCookie;
@@ -130,7 +130,7 @@ namespace Predelnik.RemoveTrailingWhitespaces
         /// </summary>
         protected override async Task InitializeAsync(System.Threading.CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
-            dte = await GetServiceAsync(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+            dte = await GetServiceAsync(typeof(_DTE)) as _DTE;
             Assumes.Present(dte);
             rdt = await GetServiceAsync(typeof(SVsRunningDocumentTable)) as IVsRunningDocumentTable;
             Assumes.Present(rdt);
@@ -186,7 +186,9 @@ namespace Predelnik.RemoveTrailingWhitespaces
         {
             if (dte.ActiveDocument == null) return;
             if (!(dte.ActiveDocument.Object() is TextDocument textDocument)) return;
-            RemoveTrailingWhiteSpaces(textDocument);
+
+            uint docCookie = GetDocCookie(dte.ActiveDocument.FullName);
+            RemoveTrailingWhiteSpaces(docCookie);
         }
 
         private IFinder GetFinder(string findWhat, string replacement, ITextBuffer textBuffer)
@@ -196,33 +198,12 @@ namespace Predelnik.RemoveTrailingWhitespaces
             return finderFactory.Create(textBuffer.CurrentSnapshot);
         }
 
-        internal static ITextBuffer GettextBufferAt(TextDocument textDocument, IComponentModel componentModel, IServiceProvider serviceProvider)
+        internal static ITextBuffer GettextBufferAt(IVsTextBuffer textBuffer, IComponentModel componentModel)
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
-            IVsWindowFrame windowFrame;
-            if (VsShellUtilities.IsDocumentOpen(
-              serviceProvider,
-              textDocument.Parent.FullName,
-              Guid.Empty,
-              out var _,
-              out var _,
-              out windowFrame))
-            {
-                IVsTextView view = VsShellUtilities.GetTextView(windowFrame);
-                IVsTextLines lines;
-                if (view.GetBuffer(out lines) == 0)
-                {
-                    var buffer = lines as IVsTextBuffer;
-                    if (buffer != null)
-                    {
-                        var editorAdapterFactoryService = componentModel.GetService<IVsEditorAdaptersFactoryService>();
-                        return editorAdapterFactoryService.GetDataBuffer(buffer);
-                    }
-                }
-            }
-
-            return null;
+            var editorAdapterFactoryService = componentModel.GetService<IVsEditorAdaptersFactoryService>();
+            return editorAdapterFactoryService.GetDataBuffer(textBuffer);
         }
+
         private static void ReplaceAll(ITextBuffer textBuffer, IEnumerable<FinderReplacement> replacements)
         {
             if (replacements.Any())
@@ -239,9 +220,49 @@ namespace Predelnik.RemoveTrailingWhitespaces
             }
         }
 
-        public void RemoveTrailingWhiteSpaces(TextDocument textDocument)
+        public uint GetDocCookie(string docFullName)
         {
-            var textBuffer = GettextBufferAt(textDocument, componentModel, this);
+            IVsHierarchy hierarchy = null;
+            uint itemid = 0;
+            IntPtr docDataUnk = IntPtr.Zero;
+            uint lockCookie = 0;
+
+            IEnumRunningDocuments allDocs;
+            if (VSConstants.S_OK != rdt.GetRunningDocumentsEnum(out allDocs))
+                return 0;
+            uint[] array = new uint[1];
+            uint pceltFetched = 0;
+            while (VSConstants.S_OK == allDocs.Next(1, array, out pceltFetched) && (pceltFetched == 1))
+            {
+                uint pgrfRDTFlags;
+                uint pdwReadLocks;
+                uint pdwEditLocks;
+                string pbstrMkDocument;
+                IVsHierarchy ppHier;
+                uint pitemid;
+                IntPtr ppunkDocData;
+                rdt.GetDocumentInfo(array[0], out pgrfRDTFlags, out pdwReadLocks, out pdwEditLocks, out pbstrMkDocument, out ppHier, out pitemid, out ppunkDocData);
+                if (pbstrMkDocument == docFullName)
+                    return array[0];
+            }
+
+            return 0;
+        }
+
+        public void RemoveTrailingWhiteSpaces(uint docCookie)
+        {
+            RunningDocumentInfo runningDocumentInfo = new RunningDocumentInfo(rdt, docCookie);
+
+            IVsHierarchy hierarchy = null;
+            uint itemid = 0;
+            IntPtr docDataUnk = IntPtr.Zero;
+            uint lockCookie = 0;
+
+            int hr = rdt.FindAndLockDocument((uint)_VSRDTFLAGS.RDT_ReadLock, runningDocumentInfo.Moniker, out hierarchy, out itemid, out docDataUnk, out lockCookie);
+            if (hr != VSConstants.S_OK || !(Marshal.GetUniqueObjectForIUnknown(docDataUnk) is IVsTextBuffer vsTextBuffer))
+                return;
+
+            var textBuffer = GettextBufferAt(vsTextBuffer, componentModel);
             ReplaceAll(textBuffer, GetFinder("[^\\S\\r\\n]+(?=\\r?$)", "", textBuffer).FindForReplaceAll());
         }
 
